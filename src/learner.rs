@@ -5,7 +5,7 @@ pub const LEARNING_RATE: f32 = 0.1;
 pub const DISCOUNT_RATE: f32 = 0.99;
 
 pub trait Learner {
-    fn learn(&mut self, env: &mut Environment) -> Option<()>;
+    fn learn(&mut self, env: &mut Environment) -> Option<f32>;
     fn print(&self);
 }
 
@@ -14,8 +14,10 @@ pub struct TableLearner {
 }
 
 impl TableLearner {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn using_env(env: &Environment) -> Self {
         let mut table = vec![];
+        let width = 4; // MAGIC!
+        let height = env.get_statespace_length();
         for i in 0..height {
             table.push(vec![0.0; width]);
         }
@@ -41,13 +43,16 @@ impl TableLearner {
         }
     }
 
-    fn next_max_from_action(&self, next_s: usize, a: usize) -> f32 {
-        10.0
+    fn max_from_state(&self, s: usize) -> f32 {
+        self.qualities.get(s).unwrap()
+            .iter()
+            .copied()
+            .fold(f32::NEG_INFINITY, f32::max)
     }
 }
 
 impl Learner for TableLearner {
-    fn learn(&mut self, env: &mut Environment) -> Option<()> {
+    fn learn(&mut self, env: &mut Environment) -> Option<f32> {
         // needs to assign a value to a cell at coords
         // to do this it needs to know what state to get
         // choose action with some epsilon (init 1.0)
@@ -57,13 +62,14 @@ impl Learner for TableLearner {
         let a = self.get_action_index(action);
 
         let reward = env.reward_from_action(action);
-        let current_q = self.get_q(0, a)?;
         let current_s = env.state();
+        let current_q = self.get_q(current_s, a)?;
         let next_s = env.advance_state(action);
-        let max_from_action = self.next_max_from_action(next_s, a);
-        let new_q = current_q + LEARNING_RATE * (reward + DISCOUNT_RATE * max_from_action - current_q);
+        let max_next_action = self.max_from_state(next_s);
+        let new_q = current_q + LEARNING_RATE * (reward + DISCOUNT_RATE * max_next_action - current_q);
+        self.set_q(current_s, a, new_q);
 
-        Some(())
+        Some(new_q)
     }
 
     fn print(&self) {

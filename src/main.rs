@@ -16,6 +16,18 @@ fn main() {
     //     n >= 10
     // });
     // scenario.print();
-    let learner = TableLearner::new(10, 10);
+    let mut env = Environment::new(3, 2, 0, 0);
+    let mut learner = TableLearner::using_env(&env);
+    for _ in 0..10 {
+        let q = learner.learn(&mut env);
+        match q {
+            Some(v) => {
+                if v < 0.0 {
+                    break;
+                }
+            },
+            None => break
+        }
+    }
     learner.print();
 }
