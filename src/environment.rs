@@ -1,18 +1,27 @@
 use num::clamp;
 use super::Action;
 
+#[derive(Clone)]
 pub struct Environment {
     state: PositionState,
     width: i32,
-    height: i32
+    height: i32,
+    rewards: Vec<Vec<f32>>,
 }
 
 impl Environment {
     pub fn new(width: i32, height: i32, x: i32, y: i32) -> Self {
+        // hardcoded for now
+        let rewards = vec![
+            vec![0.0, 1.0, 0.0],
+            vec![0.0, -10.0, 10.0],
+        ];
+
         Environment {
             state: PositionState { x, y },
             width,
-            height
+            height,
+            rewards
         }
     }
 
@@ -20,12 +29,18 @@ impl Environment {
         self.get_state_index()
     }
 
-    pub fn advance_state(&mut self, action: Action) -> usize {
+    pub fn take_action(&mut self, action: Action) -> Option<(f32, usize)> {
+        let reward = self.take_reward_from_action(action)?;
         self.state = self.next_state_from_action(action);
-        self.state()
+        Some((reward, self.state()))
     }
 
-    pub fn next_state_from_action(&self, action: Action) -> PositionState {
+    // pub fn advance_state(&mut self, action: Action) -> usize {
+    //     self.state = self.next_state_from_action(action);
+    //     self.state()
+    // }
+
+    fn next_state_from_action(&self, action: Action) -> PositionState {
         use Action::*;
         let x = self.state.x;
         let y = self.state.y;
@@ -35,23 +50,16 @@ impl Environment {
             LEFT => PositionState { x: x - 1, y },
             RIGHT => PositionState { x: x + 1, y },
         };
-        new.x = clamp(new.x, 0, self.width);
-        new.y = clamp(new.y, 0, self.height);
+        new.x = clamp(new.x, 0, self.width - 1);
+        new.y = clamp(new.y, 0, self.height - 1);
         new
     }
 
-    pub fn reward_from_action(&self, action: Action) -> f32 {
-        // hardcoded for now
-        let new_state = self.next_state_from_action(action);
-        match (new_state.x, new_state.y) {
-            (0, 0) => 0.0,
-            (1, 0) => 1.0,
-            (2, 0) => 0.0,
-            (0, 1) => 0.0,
-            (1, 1) => -10.0,
-            (2, 1) => 10.0,
-            _ => panic!("invalid state reached!")
-        }
+    pub fn take_reward_from_action(&mut self, action: Action) -> Option<f32> {
+        let PositionState {x, y} = self.next_state_from_action(action);
+        let reward = self.rewards.get_mut(y as usize)?.get_mut(x as usize).copied();
+        self.rewards[y as usize][x as usize] = 0.0;
+        reward
     }
 
     pub fn get_state_index(&self) -> usize {

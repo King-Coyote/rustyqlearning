@@ -6,6 +6,7 @@ pub const DISCOUNT_RATE: f32 = 0.99;
 
 pub trait Learner {
     fn learn(&mut self, env: &mut Environment) -> Option<f32>;
+    fn simulate(&self, env: &mut Environment) -> Option<(Action, f32)>;
     fn print(&self);
 }
 
@@ -15,13 +16,12 @@ pub struct TableLearner {
 
 impl TableLearner {
     pub fn using_env(env: &Environment) -> Self {
-        let mut table = vec![];
         let width = 4; // MAGIC!
         let height = env.get_statespace_length();
-        for i in 0..height {
-            table.push(vec![0.0; width]);
-        }
-        TableLearner { qualities: table }
+        let qualities = (0..height)
+            .map(|_| vec![0.0; width])
+            .collect();
+        TableLearner { qualities }
     }
 
     fn get_q(&self, s: usize, a: usize) -> Option<f32> {
@@ -49,6 +49,29 @@ impl TableLearner {
             .copied()
             .fold(f32::NEG_INFINITY, f32::max)
     }
+
+    fn best_action_for_state(&self, s: usize) -> Option<Action> {
+        use Action::*;
+        let mut max = f32::NEG_INFINITY;
+        let action_index = self.qualities.get(s)?
+            .iter()
+            .enumerate()
+            .fold(0, |acc, (i, q)| {
+                if *q > max {
+                    max = *q;
+                    return i;
+                }
+                acc
+            });
+        let action = match action_index {
+            0 => UP,
+            1 => DOWN,
+            2 => LEFT,
+            3 => RIGHT,
+            _ => panic!("invalid action index supplied to get best action"),
+        };
+        Some(action)
+    }
 }
 
 impl Learner for TableLearner {
@@ -61,15 +84,22 @@ impl Learner for TableLearner {
         let action = random_action();
         let a = self.get_action_index(action);
 
-        let reward = env.reward_from_action(action);
         let current_s = env.state();
         let current_q = self.get_q(current_s, a)?;
-        let next_s = env.advance_state(action);
+        let (reward, next_s) = env.take_action(action)?;
         let max_next_action = self.max_from_state(next_s);
         let new_q = current_q + LEARNING_RATE * (reward + DISCOUNT_RATE * max_next_action - current_q);
         self.set_q(current_s, a, new_q);
 
         Some(new_q)
+    }
+
+    fn simulate(&self, env: &mut Environment) -> Option<(Action, f32)> {
+        let current_s = env.state();
+        let action = self.best_action_for_state(current_s)?;
+        let (reward, _) = env.take_action(action)?;
+        println!("Took action {:?}; received reward {}", action, reward);
+        Some((action, reward))
     }
 
     fn print(&self) {
@@ -92,7 +122,7 @@ fn random_action() -> Action {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum Action {
     UP,
     DOWN,
