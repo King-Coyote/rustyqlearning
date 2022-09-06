@@ -35,11 +35,6 @@ impl Environment {
         Some((reward, self.state()))
     }
 
-    // pub fn advance_state(&mut self, action: Action) -> usize {
-    //     self.state = self.next_state_from_action(action);
-    //     self.state()
-    // }
-
     fn next_state_from_action(&self, action: Action) -> PositionState {
         use Action::*;
         let x = self.state.x;
@@ -58,7 +53,7 @@ impl Environment {
     pub fn take_reward_from_action(&mut self, action: Action) -> Option<f32> {
         let PositionState {x, y} = self.next_state_from_action(action);
         let reward = self.rewards.get_mut(y as usize)?.get_mut(x as usize).copied();
-        self.rewards[y as usize][x as usize] = 0.0;
+        self.rewards[y as usize][x as usize] = -1.0;
         reward
     }
 
