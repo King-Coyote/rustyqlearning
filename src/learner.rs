@@ -1,5 +1,6 @@
 use rand::{self, Rng};
 use crate::environment::Environment;
+use crate::epsilon::*;
 
 pub const LEARNING_RATE: f32 = 0.1;
 pub const DISCOUNT_RATE: f32 = 0.99;
@@ -60,11 +61,6 @@ impl TableLearner {
 
 impl Learner for TableLearner {
     fn learn(&mut self, env: &mut dyn Environment, epsilon: &mut dyn EpsilonFunction) -> Option<f32> {
-        // needs to assign a value to a cell at coords
-        // to do this it needs to know what state to get
-        // choose action with some epsilon (init 1.0)
-        // do action, observe reward
-        // set quality according to algorithm
         let current_s = env.state();
         let mut rng = rand::thread_rng();
         let a = match epsilon.select() {
@@ -96,23 +92,4 @@ impl Learner for TableLearner {
             println!();
         }
     }
-}
-
-pub trait EpsilonFunction {
-    fn select(&mut self) -> ActionStrategy;
-}
-
-#[derive(Clone)]
-pub struct SimpleEpsilon;
-
-impl EpsilonFunction for SimpleEpsilon {
-    fn select(&mut self) -> ActionStrategy {
-        ActionStrategy::Explore
-    }
-}
-
-#[derive(Debug)]
-pub enum ActionStrategy {
-    Explore,
-    Exploit
 }

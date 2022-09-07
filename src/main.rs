@@ -1,10 +1,11 @@
 use clap::Parser;
 use learner::*;
 use environment::*;
+use epsilon::*;
 
 mod learner;
 mod environment;
-mod scenario;
+mod epsilon;
 
 #[derive(Parser, Default, Debug)]
 struct Arguments {
@@ -17,8 +18,8 @@ struct Arguments {
 fn main() {
     let args = Arguments::parse();
     let limit = args.limit_per_episode.unwrap_or(20);
-    let mut env = PositionalEnvironment::new(3, 2, 0, 0);
-    let mut eps = SimpleEpsilon;
+    let env = PositionalEnvironment::new(3, 2, 0, 0);
+    let eps = DecayEpsilon::new(0.05);
     let mut learner = TableLearner::using_env(&env);
 
     for _ in 0..args.episodes {
@@ -26,6 +27,7 @@ fn main() {
         let cond = move |v: f32| {n += 1; n >= limit || v < -2.0 || v > 9.0};
         learn_until(cond, &mut learner, &env, &eps);
     }
+    println!("Finished learning. Results:");
     learner.print();
 
     println!("Beginning simulation...");
