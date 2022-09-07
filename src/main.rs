@@ -1,10 +1,10 @@
-use std::env;
 use clap::Parser;
 use learner::*;
 use environment::*;
 
 mod learner;
 mod environment;
+mod scenario;
 
 #[derive(Parser, Default, Debug)]
 struct Arguments {
@@ -17,13 +17,14 @@ struct Arguments {
 fn main() {
     let args = Arguments::parse();
     let limit = args.limit_per_episode.unwrap_or(20);
-    let mut env = Environment::new(3, 2, 0, 0);
+    let mut env = PositionalEnvironment::new(3, 2, 0, 0);
+    let mut eps = SimpleEpsilon;
     let mut learner = TableLearner::using_env(&env);
 
     for _ in 0..args.episodes {
         let mut n = 0;
         let cond = move |v: f32| {n += 1; n >= limit || v < -2.0 || v > 9.0};
-        learn_until(cond, &mut learner, &env);
+        learn_until(cond, &mut learner, &env, &eps);
     }
     learner.print();
 
@@ -33,14 +34,17 @@ fn main() {
     simulate_until(cond, effect, &mut learner, &env);
 }
 
-fn learn_until<C, L>(mut cond: C, learner: &mut L, env: &Environment) 
+fn learn_until<C, L, E, F>(mut cond: C, learner: &mut L, env: &E, epsilon: &F) 
 where
     C: FnMut(f32) -> bool,
     L: Learner,
+    E: Environment + Clone,
+    F: EpsilonFunction + Clone,
 {
     let mut local_env = env.clone();
+    let mut local_eps = epsilon.clone();
     loop {
-        let q = learner.learn(&mut local_env);
+        let q = learner.learn(&mut local_env, &mut local_eps);
         match q {
             Some(v) => {
                 if cond(v) {
@@ -52,11 +56,12 @@ where
     }
 }
 
-fn simulate_until<C, E, L>(mut cond: C, effect: E, learner: &mut L, env: &Environment)
+fn simulate_until<C, F, L, E>(mut cond: C, effect: F, learner: &mut L, env: &E)
 where
     C: FnMut(f32) -> bool,
-    E: Fn(Action, f32),
+    F: Fn(String, f32),
     L: Learner,
+    E: Environment + Clone,
 {
     let mut local_env = env.clone();
     loop {
